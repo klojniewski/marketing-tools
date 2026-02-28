@@ -192,7 +192,7 @@ Stage 4: Output & Recommendations (AUTOMATED)
 | Language | TypeScript | Type safety, better DX |
 | Auth | NextAuth.js v5 (Auth.js) + Google OAuth | Handles GSC OAuth tokens and refresh |
 | GSC Client | `googleapis` npm package | Official Google client, handles pagination |
-| CSV Parsing | `csv-parse` | Best streaming + TypeScript support for Node.js |
+| CSV Parsing | `papaparse` | Browser-native, handles UTF-16/BOM, auto-detects delimiters |
 | Excel Output | `ExcelJS` | Multi-tab, MIT license, streaming write |
 | LLM | `@anthropic-ai/sdk` | Official Anthropic SDK with built-in retries |
 | Validation | Zod | Schema validation for LLM responses and CSV mapping |
@@ -211,12 +211,11 @@ marketing-tools/
 │   │   ├── page.tsx                        # Main audit wizard container
 │   │   └── _components/
 │   │       ├── StepGSCConnect.tsx          # Step 1: OAuth + site selection
-│   │       ├── StepConfigurePeriods.tsx    # Step 2: Date ranges + thresholds
-│   │       ├── StepGSCResults.tsx          # Step 3: Review GSC candidates
-│   │       ├── StepUploadAhrefs.tsx        # Step 4: CSV upload + mapping
-│   │       ├── StepKeywordReview.tsx       # Step 5: Review scored keywords
-│   │       ├── StepProcessing.tsx          # Step 6: LLM processing + progress
-│   │       └── StepResults.tsx             # Step 7: Download report
+│   │       ├── StepConfigurePeriods.tsx    # Step 2: Configure + review GSC candidates (merged)
+│   │       ├── StepUploadAhrefs.tsx        # Step 3: CSV upload + parsing
+│   │       ├── StepKeywordReview.tsx       # Step 4: Review scored keywords
+│   │       ├── StepProcessing.tsx          # Step 5: LLM processing + progress
+│   │       └── StepResults.tsx             # Step 6: Download report
 │   └── api/
 │       ├── auth/[...nextauth]/route.ts     # NextAuth Google OAuth
 │       ├── gsc/
@@ -233,9 +232,11 @@ marketing-tools/
 │   │   ├── types.ts                        # GSC request/response types
 │   │   └── comparison.ts                   # Period comparison logic
 │   ├── ahrefs/
-│   │   ├── csv-parser.ts                   # Parse Ahrefs CSV exports
-│   │   ├── column-maps.ts                  # Known Ahrefs column name mappings
-│   │   └── types.ts                        # Ahrefs data types
+│   │   ├── parse-csv.ts                    # Parse Ahrefs CSV with papaparse + file type detection
+│   │   ├── transform-keywords.ts           # Map CSV rows → LostKeyword[]
+│   │   ├── transform-backlinks.ts          # Map CSV rows → ParsedBacklink[]
+│   │   ├── match-urls.ts                   # URL normalization + keyword-to-page slug matching
+│   │   └── scoring.ts                      # Value score calculation + junk detection
 │   ├── analysis/
 │   │   ├── filters.ts                      # Drop filters, topic filter, junk filter
 │   │   ├── scoring.ts                      # Value Score calculation
@@ -281,120 +282,83 @@ Every screen in the wizard must be **self-documenting**. The user should never w
 
 > **Approach:** Start with a complete static mockup using mocked data to validate the UX flow end-to-end. Then progressively replace mocked data with real API integrations, one stage at a time.
 
-#### Phase 1: Static Mockup (Full UX Walkthrough with Mocked Data)
+#### Phase 1: Static Mockup (Full UX Walkthrough with Mocked Data) ✅ COMPLETE
 
 Build the complete wizard UI with realistic mocked data so we can walk through every step and validate the flow before writing any API integration code.
 
 **Deliverables:**
-- [ ] Next.js 16 project setup with TypeScript, Tailwind CSS (`app/` directory structure)
-- [ ] Root layout with navigation, branding, step indicator
-- [ ] Complete wizard with all 7 steps, navigable with Next/Back buttons
-- [ ] All steps use mocked data from `lib/mock-data.ts` (realistic sample data)
-- [ ] **Step 1: GSC Connect** — mock OAuth button, site property dropdown (mocked list)
-- [ ] **Step 2: Configure Periods** — date range pickers, threshold sliders with explanatory help text, comparison mode selector (28d/90d/YoY), blog URL pattern input
-- [ ] **Step 3: GSC Results** — data table of candidate pages with all metrics (impressions, clicks, position, CTR diffs), "Important" toggle per row, topic match column, filter/sort controls, inline explanations of each column
-- [ ] **Step 4: Upload Ahrefs CSVs** — drag-and-drop upload zones for each CSV type, each with detailed Ahrefs export instructions panel ("Step 1: Open Ahrefs Site Explorer → Step 2: Enter URL → Step 3: Click Organic Keywords → ..."), file preview after "upload" (mocked), column mapping preview
-- [ ] **Step 5: Keyword Review** — scored keyword table per candidate URL, Value Score breakdown shown, junk-filtered keywords crossed out with reason shown, user can toggle keywords on/off, top 1-3 auto-selected with override capability
-- [ ] **Step 6: Processing** — simulated progress bar with step descriptions ("Fetching article content...", "Analyzing with Claude Sonnet...", "Parsing results..."), cost estimation display, per-article progress cards
-- [ ] **Step 7: Results & Download** — full "Update Queue" table with all 21 columns, expandable rows for LLM details (worse_points, what_to_update), mock Excel download button, summary stats (total pages analyzed, total cost, avg priority)
-- [ ] Every step has contextual help text, tooltips on column headers, and "why this matters" callouts
-- [ ] Responsive layout (works on desktop; tablet optional)
+- [x] Next.js 16 project setup with TypeScript, Tailwind CSS (`app/` directory structure)
+- [x] Root layout with navigation, branding, step indicator
+- [x] Complete wizard with all 6 steps, navigable with Next/Back buttons (merged Configure + Review into single step)
+- [x] All steps use mocked data from `lib/mock-data.ts` (realistic sample data)
+- [x] **Step 1: GSC Connect** — mock OAuth button, site property dropdown (mocked list)
+- [x] **Step 2: Configure & Review** — date range pickers, threshold sliders, comparison mode selector, blog URL pattern input, inline results table with sortable columns, page selection
+- [x] **Step 3: Upload Ahrefs CSVs** — drag-and-drop upload zone, file preview after upload, mock data fallback
+- [x] **Step 4: Keyword Review** — scored keyword table, Value Score breakdown, junk-filtered keywords with reason, user can toggle on/off
+- [x] **Step 5: Processing** — simulated progress bar with step descriptions, per-article progress
+- [x] **Step 6: Results & Download** — expandable result cards with LLM details, mock Excel download button, summary stats
+- [x] Every step has contextual help text, tooltips on column headers, and InfoCallout explanations
+- [x] Responsive layout (works on desktop)
 
-**Mock Data (`lib/mock-data.ts`):**
-```typescript
-// Realistic sample data for 5-8 blog posts covering various scenarios:
-// - Page with large impression drop + important topic → proceeds to analysis
-// - Page with drop but not "Important" topic → filtered out
-// - Page where all keywords are junk → "Doubtful" recommendation
-// - Page with clear competitor displacement → "Yes, update" recommendation
-// - Page with suspected cannibalization → flagged
-// - Page where intent shifted → "Create new page" recommendation
-```
+**Note:** Original plan had 7 steps; Step 2 (Configure) and Step 3 (Review Pages) were merged into a single "Configure & Review" step for better UX (user can tweak settings and re-fetch without navigating). Wizard is now 6 steps.
 
-**Acceptance Criteria:**
-- [ ] Can walk through all 7 steps end-to-end using mocked data
-- [ ] Every field/column has explanatory help text or tooltip
-- [ ] Ahrefs export instructions are clear enough that someone unfamiliar with Ahrefs could follow them
-- [ ] Empty states are handled with helpful messaging
-- [ ] Step indicator shows progress through the wizard
-- [ ] Back navigation preserves state
-- [ ] Overall flow makes logical sense — no steps feel confusing or redundant
-
-#### Phase 2: Connect GSC API (Make Stage 1 Dynamic)
+#### Phase 2: Connect GSC API (Make Stage 1 Dynamic) ✅ COMPLETE
 
 Replace mocked GSC data with real API integration.
 
 **Deliverables:**
-- [ ] NextAuth.js Google OAuth with `webmasters.readonly` scope (`app/api/auth/[...nextauth]/route.ts`)
-- [ ] GSC API client with pagination (`lib/gsc/client.ts`)
-- [ ] Period comparison logic — two API calls in parallel, merge, compute diffs (`lib/gsc/comparison.ts`)
-- [ ] All filters: URL cleanup (#fragments), drop thresholds, topic regex, impressions minimum (`lib/analysis/filters.ts`)
-- [ ] Position and CTR diff calculations alongside impressions and clicks
-- [ ] Step 1 now uses real OAuth flow
-- [ ] Step 2 submits real GSC queries
-- [ ] Step 3 shows real data (falls back to mock if GSC not connected)
-- [ ] Basic Excel output with "Raw GSC Data" and "Candidates" tabs (`lib/output/excel-generator.ts`)
-- [ ] Download endpoint for generated Excel file (`app/api/download/[jobId]/route.ts`)
-
-**Key GSC API Gotchas to Handle:**
-- No native date comparison — must make 2 separate queries
-- URL filter uses full URLs not paths: `https://example\\.com/blog/.*`
-- `impressions > 500` cannot be server-side filtered — must filter in code after fetch
-- GSC data has 2-3 day delay — auto-adjust `endDate` to 3 days ago
-- `rows` is `undefined` (not `[]`) when no results — always use `?? []`
-- RE2 regex syntax (no lookahead/lookbehind)
-- Use `google.searchconsole('v1')` not `webmasters('v3')` — forward-looking API surface
+- [x] NextAuth.js Google OAuth with `webmasters.readonly` scope (`app/api/auth/[...nextauth]/route.ts`)
+- [x] GSC API client with pagination (`lib/gsc/client.ts`)
+- [x] Period comparison logic — two API calls in parallel, merge, compute diffs (`lib/gsc/comparison.ts`)
+- [x] All filters: URL cleanup (#fragments), drop thresholds, topic regex, impressions minimum (`lib/analysis/filters.ts`)
+- [x] Position and CTR diff calculations alongside impressions and clicks
+- [x] Step 1 now uses real OAuth flow
+- [x] Step 2 submits real GSC queries and shows results inline
+- [x] Falls back to mock data if GSC not connected
+- [ ] Basic Excel output with "Raw GSC Data" and "Candidates" tabs — **deferred to Phase 4/5**
+- [ ] Download endpoint for generated Excel file — **deferred to Phase 4/5**
 
 **Acceptance Criteria:**
-- [ ] User can OAuth into GSC, select a property from their real account
-- [ ] App fetches real data, computes all diffs, applies all filters
-- [ ] User sees real candidate list with all metrics (impressions, clicks, position, CTR diffs)
-- [ ] User can download Excel with real raw + filtered data
-- [ ] Handles pagination for sites with 25K+ blog pages
-- [ ] Loading states while GSC data fetches
-- [ ] Error handling for OAuth failures, API errors, empty results
+- [x] User can OAuth into GSC, select a property from their real account
+- [x] App fetches real data, computes all diffs, applies all filters
+- [x] User sees real candidate list with all metrics (impressions, clicks, position, CTR diffs)
+- [ ] User can download Excel with real raw + filtered data — **deferred**
+- [x] Handles pagination for sites with 25K+ blog pages
+- [x] Loading states while GSC data fetches
+- [x] Error handling for OAuth failures, API errors, empty results
 
-#### Phase 3: Ahrefs CSV Import + Keyword Scoring (Make Stage 2 Dynamic)
+#### Phase 3: Ahrefs CSV Import + Keyword Scoring (Make Stage 2 Dynamic) ✅ COMPLETE
 
 Replace mocked Ahrefs data with real CSV upload and parsing.
 
 **Deliverables:**
-- [ ] CSV upload API route with file validation (`app/api/upload/route.ts`)
-- [ ] Ahrefs CSV parser with BOM handling, column auto-detection (`lib/ahrefs/csv-parser.ts`)
-- [ ] Column mapping configuration for different Ahrefs export formats (`lib/ahrefs/column-maps.ts`)
-- [ ] URL normalization for GSC ↔ Ahrefs matching (trailing slash, protocol, www)
-- [ ] Value Score calculation (`lib/analysis/scoring.ts`)
-- [ ] Keyword junk filters (volume, KD, brand exclusion, topic relevance) (`lib/analysis/filters.ts`)
-- [ ] Step 4 now handles real file uploads with preview and column mapping
-- [ ] Step 5 shows real scored keywords from uploaded data
-- [ ] Ahrefs export instruction panels refined based on actual Ahrefs CSV column names
-- [ ] Excel output extended with "Lost Keywords Detail" tab
+- [x] Client-side CSV parsing with `papaparse` — handles UTF-16LE/BOM, tab-delimited, auto-detects format (`lib/ahrefs/parse-csv.ts`)
+- [x] File type auto-detection from column headers (organic-keywords vs backlinks vs unknown)
+- [x] URL normalization + keyword-to-page slug matching heuristic (`lib/ahrefs/match-urls.ts`)
+- [x] Value Score calculation: `(Volume × 0.4) + (|TrafficLoss| × 0.5) + (PosBefore × 0.1) − (KD × 0.05)` (`lib/ahrefs/scoring.ts`)
+- [x] Keyword junk filters: volume < 100, KD > 65 (`lib/ahrefs/scoring.ts`)
+- [x] Step 3 now handles real drag-and-drop file uploads with per-file summary stats
+- [x] Step 4 receives real keyword data via props, KD column conditional (hidden when not available)
+- [x] Ahrefs export instructions updated to match actual export workflow
+- [ ] Excel output extended with "Lost Keywords Detail" tab — **deferred to Phase 5**
 
-**Expected Ahrefs CSV Uploads (3 types):**
-
-1. **Organic Keywords export** (Site Explorer → Organic Keywords → filter by URL → Export)
-   - Expected columns: `Keyword, Volume, Position, Traffic, KD, URL, Position (previous)`, etc.
-   - One export per candidate URL, OR one site-wide export filtered by the app
-
-2. **Backlinks export** (Site Explorer → Backlinks → filter Lost, DR > 20 → Export)
-   - Expected columns: `Referring Page URL, DR, Anchor, First Seen, Last Seen, Lost Date`
-   - Can be site-wide, app filters by target URL
-
-3. **Competitor SERP data** (Keywords Explorer → SERP Overview → Export)
-   - Expected columns: `URL, Domain Rating, URL Rating, Traffic, Backlinks`
-   - Per-keyword export for top 1-3 keywords
+**Key design decisions (differ from original plan):**
+- **Client-side parsing** instead of server-side upload API — Ahrefs CSVs are local files, no secrets, papaparse handles encoding natively in the browser. No `app/api/upload/route.ts` needed.
+- **2 file types** instead of 3 — "Competitor SERP" is not a standard Ahrefs export. Simplified to Organic Keywords + Backlinks.
+- **KD is optional** — real Ahrefs domain-level organic keywords export doesn't include KD. `LostKeyword.kd` is now `kd?: number`.
+- **Keyword-to-page matching via slug heuristic** — domain-level export has no URL column, so we match by checking if keyword tokens appear in candidate URL slugs (>= 40% overlap).
 
 **Acceptance Criteria:**
-- [ ] User can upload real Ahrefs CSVs with drag-and-drop
-- [ ] App shows preview of parsed data with detected column mapping
-- [ ] App maps Ahrefs data to GSC candidates (URL normalization handles mismatches)
-- [ ] App shows unmatched URLs with resolution options (manual URL mapping)
-- [ ] Value Scores calculated and top 1-3 keywords selected per URL
-- [ ] User can override keyword selection
-- [ ] Handles encoding issues (BOM, UTF-8, different delimiters)
-- [ ] Validates CSV format before parsing (rejects non-CSV files, empty files)
+- [x] User can upload real Ahrefs CSVs with drag-and-drop
+- [x] App auto-detects file type from column headers
+- [x] App maps keywords to GSC candidates via slug matching, shows matched/unmatched counts
+- [x] Unmatched keywords shown as "Unassigned" with filter option in Step 4
+- [x] Value Scores calculated, keywords auto-sorted by score
+- [x] User can override keyword selection (check/uncheck in Step 4)
+- [x] Handles encoding issues (UTF-16LE BOM, UTF-8, tab-delimited)
+- [x] Validates CSV format before parsing (rejects non-CSV, unknown formats, empty files)
 
-#### Phase 4: Content Fetching + LLM Analysis (Make Stage 3 Dynamic)
+#### Phase 4: Content Fetching + LLM Analysis (Make Stage 3 Dynamic) ⬜ TODO — NEXT UP
 
 Replace mocked LLM results with real content fetching and Claude API integration.
 
@@ -408,11 +372,12 @@ Replace mocked LLM results with real content fetching and Claude API integration
 - [ ] Retry logic: strip markdown fences, re-extract JSON, retry on parse failure
 - [ ] Cost tracker with per-call and cumulative cost display (`lib/llm/cost-tracker.ts`)
 - [ ] Cost estimation step before processing ("This will cost ~$X for N articles. Proceed?")
-- [ ] Background job queue with SSE progress streaming (`lib/jobs/job-store.ts`)
+- [ ] API route for running analysis (`app/api/audit/start/route.ts`)
+- [ ] SSE progress streaming (`app/api/audit/status/[jobId]/route.ts`)
 - [ ] Concurrency control: max 3 parallel LLM calls via `p-limit`
-- [ ] Step 6 shows real processing progress with SSE updates
-- [ ] Step 7 shows real LLM analysis results
-- [ ] Excel output extended with "LLM Raw JSON" tab and full "Update Queue" main tab
+- [ ] Wire Step 5 (Processing) to real API — replace mock progress with SSE updates
+- [ ] Wire Step 6 (Results) to real `LLMAnalysis[]` data via props — remove mock imports
+- [ ] Excel output with "LLM Raw JSON" tab and full "Update Queue" main tab
 
 **LLM Prompt Improvements Over Original Spec:**
 ```
@@ -434,13 +399,13 @@ Key changes to the prompt template:
 - [ ] All LLM columns populated in Excel output
 - [ ] Budget cap stops processing if exceeded
 
-#### Phase 5: Advanced Features & Polish
+#### Phase 5: Advanced Features & Polish ⬜ TODO
 
 **Deliverables:**
 - [ ] Cannibalization detection via GSC `["page", "query"]` query (`lib/analysis/cannibalization.ts`)
 - [ ] Displacement classification with expanded categories (`lib/analysis/displacement.ts`)
 - [ ] Consolidation recommendation (detect topic overlap between candidates)
-- [ ] Multiple comparison modes (28d, 90d, YoY)
+- [x] Multiple comparison modes (28d, 90d, YoY) — already in Step 2 UI
 - [ ] Configurable settings UI: thresholds, topic patterns, brand exclusions, LLM model
 - [ ] Pipeline state persistence — save/resume interrupted audits (JSON files on disk)
 - [ ] Export report download with formatted styling (conditional formatting, frozen headers)
@@ -567,7 +532,7 @@ erDiagram
     "googleapis": "^140.0.0",
     "next-auth": "^5.0.0",
     "@anthropic-ai/sdk": "^0.35.0",
-    "csv-parse": "^5.6.0",
+    "papaparse": "^5.4.1",
     "exceljs": "^4.4.0",
     "zod": "^3.23.0",
     "p-limit": "^6.0.0",
