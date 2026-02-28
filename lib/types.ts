@@ -83,7 +83,7 @@ export interface AuditConfig {
   topicPatterns: string;
 }
 
-export type WizardStep = 1 | 2 | 3 | 4 | 5 | 6 | 7;
+export type WizardStep = 1 | 2 | 3 | 4 | 5 | 6;
 
 export interface StepInfo {
   number: WizardStep;
@@ -93,10 +93,9 @@ export interface StepInfo {
 
 export const STEPS: StepInfo[] = [
   { number: 1, title: "Connect GSC", subtitle: "Link your Google Search Console account" },
-  { number: 2, title: "Configure", subtitle: "Set date ranges and thresholds" },
-  { number: 3, title: "Review Pages", subtitle: "Review declining pages from GSC" },
-  { number: 4, title: "Import Ahrefs", subtitle: "Upload Ahrefs CSV exports" },
-  { number: 5, title: "Keywords", subtitle: "Review and score lost keywords" },
-  { number: 6, title: "Analyze", subtitle: "LLM-powered content gap analysis" },
-  { number: 7, title: "Results", subtitle: "Download your audit report" },
+  { number: 2, title: "Configure & Review", subtitle: "Set date ranges, fetch & review declining pages" },
+  { number: 3, title: "Import Ahrefs", subtitle: "Upload Ahrefs CSV exports" },
+  { number: 4, title: "Keywords", subtitle: "Review and score lost keywords" },
+  { number: 5, title: "Analyze", subtitle: "LLM-powered content gap analysis" },
+  { number: 6, title: "Results", subtitle: "Download your audit report" },
 ];
