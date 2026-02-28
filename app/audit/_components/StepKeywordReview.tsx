@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { mockLostKeywords, mockCandidates } from "@/lib/mock-data";
 import type { LostKeyword } from "@/lib/types";
 import { InfoCallout } from "./InfoCallout";
 import { HelpIcon } from "./Tooltip";
@@ -9,17 +8,28 @@ import { HelpIcon } from "./Tooltip";
 export function StepKeywordReview({
   onNext,
   onBack,
+  keywords,
+  onKeywordsUpdated,
 }: {
   onNext: () => void;
   onBack: () => void;
+  keywords: LostKeyword[];
+  onKeywordsUpdated: (keywords: LostKeyword[]) => void;
 }) {
-  const [keywords, setKeywords] = useState<LostKeyword[]>(mockLostKeywords);
   const [filterUrl, setFilterUrl] = useState<string>("all");
   const [showJunk, setShowJunk] = useState(true);
 
   const candidateUrls = useMemo(
-    () => [...new Set(mockLostKeywords.map((k) => k.candidateUrl))],
-    []
+    () =>
+      [...new Set(keywords.map((k) => k.candidateUrl))].filter(
+        (u) => u !== "unassigned"
+      ),
+    [keywords]
+  );
+
+  const hasKdData = useMemo(
+    () => keywords.some((k) => k.kd != null),
+    [keywords]
   );
 
   const filteredKeywords = useMemo(() => {
@@ -35,10 +45,13 @@ export function StepKeywordReview({
 
   const selectedCount = keywords.filter((k) => k.isSelected).length;
   const junkCount = keywords.filter((k) => k.isJunk).length;
+  const unassignedCount = keywords.filter(
+    (k) => k.candidateUrl === "unassigned"
+  ).length;
 
   function toggleKeyword(keyword: string) {
-    setKeywords((prev) =>
-      prev.map((k) =>
+    onKeywordsUpdated(
+      keywords.map((k) =>
         k.keyword === keyword ? { ...k, isSelected: !k.isSelected } : k
       )
     );
@@ -46,8 +59,8 @@ export function StepKeywordReview({
 
   function selectAllVisible() {
     const visibleKeywords = new Set(filteredKeywords.map((k) => k.keyword));
-    setKeywords((prev) =>
-      prev.map((k) =>
+    onKeywordsUpdated(
+      keywords.map((k) =>
         visibleKeywords.has(k.keyword) ? { ...k, isSelected: true } : k
       )
     );
@@ -55,11 +68,19 @@ export function StepKeywordReview({
 
   function deselectAllVisible() {
     const visibleKeywords = new Set(filteredKeywords.map((k) => k.keyword));
-    setKeywords((prev) =>
-      prev.map((k) =>
+    onKeywordsUpdated(
+      keywords.map((k) =>
         visibleKeywords.has(k.keyword) ? { ...k, isSelected: false } : k
       )
     );
+  }
+
+  function getSlug(url: string): string {
+    try {
+      return new URL(url).pathname.split("/").pop() || url;
+    } catch {
+      return url;
+    }
   }
 
   return (
@@ -67,32 +88,46 @@ export function StepKeywordReview({
       <InfoCallout title="How keyword scoring works">
         <p>
           Each keyword gets a <strong>Value Score</strong> based on:{" "}
-          <code className="bg-white/50 px-1 rounded">volume × (1 - KD/100) × log2(trafficChange + 1)</code>.
-          Higher scores mean the keyword is high-volume, low-competition, and
-          lost significant traffic — making it the best recovery target. Keywords
-          flagged as &quot;junk&quot; are auto-deselected but you can override this.
+          <code className="bg-white/50 px-1 rounded">
+            (Volume &times; 0.4) + (|TrafficLoss| &times; 0.5) + (PosBefore
+            &times; 0.1)
+            {hasKdData ? " - (KD \u00d7 0.05)" : ""}
+          </code>
+          . Higher scores mean the keyword is high-volume, lost significant
+          traffic, and is worth recovering. Keywords flagged as &quot;junk&quot;
+          are auto-deselected but you can override this.
         </p>
       </InfoCallout>
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-4">
         <div>
-          <label className="block text-xs text-muted mb-1">Filter by page</label>
+          <label className="block text-xs text-muted mb-1">
+            Filter by page
+          </label>
           <select
             value={filterUrl}
             onChange={(e) => setFilterUrl(e.target.value)}
             className="rounded-lg border border-border bg-card px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30"
           >
-            <option value="all">All pages ({keywords.length} keywords)</option>
+            <option value="all">
+              All pages ({keywords.length} keywords)
+            </option>
             {candidateUrls.map((url) => {
-              const slug = new URL(url).pathname.split("/").pop();
-              const count = keywords.filter((k) => k.candidateUrl === url).length;
+              const count = keywords.filter(
+                (k) => k.candidateUrl === url
+              ).length;
               return (
                 <option key={url} value={url}>
-                  {slug} ({count})
+                  {getSlug(url)} ({count})
                 </option>
               );
             })}
+            {unassignedCount > 0 && (
+              <option value="unassigned">
+                Unassigned ({unassignedCount})
+              </option>
+            )}
           </select>
         </div>
         <label className="flex items-center gap-2 text-sm cursor-pointer">
@@ -105,11 +140,17 @@ export function StepKeywordReview({
           Show junk keywords ({junkCount})
         </label>
         <div className="ml-auto flex gap-2">
-          <button onClick={selectAllVisible} className="text-xs text-accent hover:underline">
+          <button
+            onClick={selectAllVisible}
+            className="text-xs text-accent hover:underline"
+          >
             Select visible
           </button>
           <span className="text-muted">|</span>
-          <button onClick={deselectAllVisible} className="text-xs text-accent hover:underline">
+          <button
+            onClick={deselectAllVisible}
+            className="text-xs text-accent hover:underline"
+          >
             Deselect visible
           </button>
         </div>
@@ -129,6 +170,14 @@ export function StepKeywordReview({
           <span className="text-muted">Marked junk:</span>{" "}
           <span className="font-semibold text-amber-700">{junkCount}</span>
         </div>
+        {unassignedCount > 0 && (
+          <div className="rounded-lg bg-orange-50 px-4 py-2">
+            <span className="text-muted">Unassigned:</span>{" "}
+            <span className="font-semibold text-orange-700">
+              {unassignedCount}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Keywords table */}
@@ -137,17 +186,17 @@ export function StepKeywordReview({
           <thead>
             <tr className="bg-slate-50 text-left">
               <th className="px-3 py-2.5 w-10"></th>
-              <th className="px-3 py-2.5 font-medium">
-                Keyword
-              </th>
+              <th className="px-3 py-2.5 font-medium">Keyword</th>
               <th className="px-3 py-2.5 font-medium text-right">
                 Volume
                 <HelpIcon tooltip="Monthly search volume from Ahrefs. Higher = more potential traffic." />
               </th>
-              <th className="px-3 py-2.5 font-medium text-right">
-                KD
-                <HelpIcon tooltip="Keyword Difficulty (0-100). Lower = easier to rank for. Above 65 is very competitive." />
-              </th>
+              {hasKdData && (
+                <th className="px-3 py-2.5 font-medium text-right">
+                  KD
+                  <HelpIcon tooltip="Keyword Difficulty (0-100). Lower = easier to rank for. Above 65 is very competitive." />
+                </th>
+              )}
               <th className="px-3 py-2.5 font-medium text-right">
                 Pos. Before
                 <HelpIcon tooltip="Your position for this keyword before the decline." />
@@ -162,11 +211,9 @@ export function StepKeywordReview({
               </th>
               <th className="px-3 py-2.5 font-medium text-right">
                 Value Score
-                <HelpIcon tooltip="Our composite score combining volume, competition, and traffic loss. Higher = better recovery target." />
+                <HelpIcon tooltip="Our composite score combining volume, traffic loss, and position. Higher = better recovery target." />
               </th>
-              <th className="px-3 py-2.5 font-medium text-center">
-                Status
-              </th>
+              <th className="px-3 py-2.5 font-medium text-center">Status</th>
             </tr>
           </thead>
           <tbody>
@@ -192,33 +239,43 @@ export function StepKeywordReview({
                 <td className="px-3 py-2.5">
                   <div className="font-medium">{kw.keyword}</div>
                   <div className="text-xs text-muted truncate max-w-[200px]">
-                    {new URL(kw.candidateUrl).pathname.split("/").pop()}
+                    {kw.candidateUrl === "unassigned" ? (
+                      <span className="text-orange-600">Unassigned</span>
+                    ) : (
+                      getSlug(kw.candidateUrl)
+                    )}
                   </div>
                 </td>
                 <td className="px-3 py-2.5 text-right tabular-nums">
                   {kw.volume.toLocaleString()}
                 </td>
+                {hasKdData && (
+                  <td className="px-3 py-2.5 text-right tabular-nums">
+                    {kw.kd != null ? (
+                      <span
+                        className={
+                          kw.kd > 65
+                            ? "text-red-600"
+                            : kw.kd > 40
+                              ? "text-amber-600"
+                              : "text-emerald-600"
+                        }
+                      >
+                        {kw.kd}
+                      </span>
+                    ) : (
+                      <span className="text-muted">&mdash;</span>
+                    )}
+                  </td>
+                )}
                 <td className="px-3 py-2.5 text-right tabular-nums">
-                  <span
-                    className={
-                      kw.kd > 65
-                        ? "text-red-600"
-                        : kw.kd > 40
-                          ? "text-amber-600"
-                          : "text-emerald-600"
-                    }
-                  >
-                    {kw.kd}
-                  </span>
-                </td>
-                <td className="px-3 py-2.5 text-right tabular-nums">
-                  {kw.positionBefore}
+                  {kw.positionBefore.toFixed(1)}
                 </td>
                 <td className="px-3 py-2.5 text-right tabular-nums">
                   {kw.position === 0 ? (
                     <span className="text-red-600">Out</span>
                   ) : (
-                    kw.position
+                    kw.position.toFixed(1)
                   )}
                 </td>
                 <td className="px-3 py-2.5 text-right tabular-nums">
@@ -253,10 +310,10 @@ export function StepKeywordReview({
       <InfoCallout title="What are 'junk' keywords?">
         <p>
           We auto-flag keywords that are unlikely to be worth pursuing:
-          very high KD (&gt;65), very low volume (&lt;100), brand terms for
-          competitors, or broad informational queries where your article is
-          tangential. You can override these flags by checking/unchecking the box.
-          Only selected keywords are sent to the LLM for analysis.
+          {hasKdData && " very high KD (>65),"} very low volume (&lt;100), or
+          brand terms for competitors. You can override these flags by
+          checking/unchecking the box. Only selected keywords are sent to the LLM
+          for analysis.
         </p>
       </InfoCallout>
 
@@ -266,7 +323,14 @@ export function StepKeywordReview({
           onClick={onBack}
           className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2.5 text-sm font-medium hover:bg-slate-50 transition-colors"
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
             <path d="M15 18l-6-6 6-6" />
           </svg>
           Back
@@ -277,7 +341,14 @@ export function StepKeywordReview({
           className="inline-flex items-center gap-2 rounded-lg bg-accent px-6 py-2.5 text-white font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Start Analysis ({selectedCount} keywords)
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
             <path d="M9 18l6-6-6-6" />
           </svg>
         </button>

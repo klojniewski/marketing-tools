@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import type { WizardStep, GSCCandidate } from "@/lib/types";
+import type { WizardStep, GSCCandidate, LostKeyword, ParsedBacklink } from "@/lib/types";
 import { STEPS } from "@/lib/types";
 import { StepIndicator } from "./_components/StepIndicator";
 import { StepGSCConnect } from "./_components/StepGSCConnect";
@@ -23,6 +23,8 @@ function AuditWizard() {
   const [gscSites, setGscSites] = useState<GSCSite[]>([]);
   const [selectedSiteUrl, setSelectedSiteUrl] = useState("");
   const [candidates, setCandidates] = useState<GSCCandidate[]>([]);
+  const [lostKeywords, setLostKeywords] = useState<LostKeyword[]>([]);
+  const [backlinks, setBacklinks] = useState<ParsedBacklink[]>([]);
 
   const stepInfo = STEPS.find((s) => s.number === currentStep)!;
 
@@ -84,8 +86,24 @@ function AuditWizard() {
             onCandidatesFetched={handleCandidatesFetched}
           />
         )}
-        {currentStep === 3 && <StepUploadAhrefs onNext={goNext} onBack={goBack} />}
-        {currentStep === 4 && <StepKeywordReview onNext={goNext} onBack={goBack} />}
+        {currentStep === 3 && (
+          <StepUploadAhrefs
+            onNext={goNext}
+            onBack={goBack}
+            candidateUrls={candidates.map((c) => c.url)}
+            lostKeywords={lostKeywords}
+            onKeywordsParsed={setLostKeywords}
+            onBacklinksParsed={setBacklinks}
+          />
+        )}
+        {currentStep === 4 && (
+          <StepKeywordReview
+            onNext={goNext}
+            onBack={goBack}
+            keywords={lostKeywords}
+            onKeywordsUpdated={setLostKeywords}
+          />
+        )}
         {currentStep === 5 && <StepProcessing onNext={goNext} onBack={goBack} />}
         {currentStep === 6 && <StepResults onBack={goBack} />}
       </main>

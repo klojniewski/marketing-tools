@@ -25,12 +25,24 @@ export interface LostKeyword {
   positionBefore: number;
   traffic: number;
   trafficChange: number;
-  kd: number;
+  kd?: number;
   valueScore: number;
   isJunk: boolean;
   junkReason: string | null;
   isSelected: boolean;
   candidateUrl: string;
+}
+
+export interface ParsedBacklink {
+  referringUrl: string;
+  referringTitle: string;
+  domainRating: number;
+  targetUrl: string;
+  lostStatus: string;
+  dropReason: string;
+  firstSeen: string;
+  lastSeen: string;
+  lostDate: string;
 }
 
 export interface Competitor {
