@@ -2,8 +2,6 @@ import type { GSCCandidate } from "@/lib/types";
 
 /**
  * Removes URLs containing fragment identifiers (#).
- * These are typically anchor links to sections within a page,
- * not separate pages, and would create false duplicates.
  */
 export function filterFragmentUrls(rows: GSCCandidate[]): GSCCandidate[] {
   return rows.filter((row) => !row.url.includes("#"));
@@ -11,7 +9,6 @@ export function filterFragmentUrls(rows: GSCCandidate[]): GSCCandidate[] {
 
 /**
  * Filters candidates by blog URL pattern.
- * Only keeps URLs whose path contains the given pattern substring.
  */
 export function filterByBlogPattern(
   rows: GSCCandidate[],
@@ -24,25 +21,70 @@ export function filterByBlogPattern(
 
 /**
  * Applies minimum impression and clicks drop thresholds.
- * - impressionThreshold: minimum impressions in Period B (baseline)
- * - clicksDropThreshold: minimum % drop in clicks (as positive number, e.g. 20 for -20%)
  */
 export function filterByThresholds(
   candidates: GSCCandidate[],
   config: { impressionThreshold: number; clicksDropThreshold: number }
 ): GSCCandidate[] {
   return candidates.filter((c) => {
-    // Must have enough baseline impressions
     if (c.impressionsB < config.impressionThreshold) return false;
-    // Must have a meaningful clicks drop (clicksDiffPercent is negative for drops)
     if (c.clicksDiffPercent > -config.clicksDropThreshold) return false;
     return true;
   });
 }
 
 /**
- * Applies topic patterns to candidates, setting isImportant flag
- * and topicMatch string for any URL slug that matches.
+ * Filters by minimum clicks in Period B (baseline).
+ * Pages with fewer clicks than the threshold are excluded.
+ */
+export function filterByMinClicks(
+  candidates: GSCCandidate[],
+  threshold: number
+): GSCCandidate[] {
+  if (threshold <= 0) return candidates;
+  return candidates.filter((c) => c.clicksB >= threshold);
+}
+
+/**
+ * Filters by minimum position drop (absolute).
+ * positionDiff is positionA - positionB; positive = dropped in rankings.
+ * Only keeps pages where the position drop >= threshold.
+ */
+export function filterByPositionDrop(
+  candidates: GSCCandidate[],
+  threshold: number
+): GSCCandidate[] {
+  if (threshold <= 0) return candidates;
+  return candidates.filter((c) => c.positionDiff >= threshold);
+}
+
+/**
+ * Filters by URL keyword inclusion/exclusion.
+ * - include: URL path must contain this substring (case-insensitive)
+ * - exclude: URL path must NOT contain this substring (case-insensitive)
+ */
+export function filterByUrlKeyword(
+  candidates: GSCCandidate[],
+  include: string,
+  exclude: string
+): GSCCandidate[] {
+  let result = candidates;
+
+  if (include.trim()) {
+    const lowerInclude = include.trim().toLowerCase();
+    result = result.filter((c) => c.url.toLowerCase().includes(lowerInclude));
+  }
+
+  if (exclude.trim()) {
+    const lowerExclude = exclude.trim().toLowerCase();
+    result = result.filter((c) => !c.url.toLowerCase().includes(lowerExclude));
+  }
+
+  return result;
+}
+
+/**
+ * Applies topic patterns to candidates, setting isImportant flag.
  */
 export function applyTopicFilter(
   candidates: GSCCandidate[],
@@ -58,7 +100,6 @@ export function applyTopicFilter(
   if (patterns.length === 0) return candidates;
 
   return candidates.map((candidate) => {
-    // Extract the URL slug for matching
     let slug: string;
     try {
       slug = new URL(candidate.url).pathname.toLowerCase();
@@ -66,7 +107,6 @@ export function applyTopicFilter(
       slug = candidate.url.toLowerCase();
     }
 
-    // Also match against hyphenated versions (e.g. "headless cms" matches "headless-cms")
     for (const pattern of patterns) {
       const hyphenated = pattern.replace(/\s+/g, "-");
       if (slug.includes(hyphenated) || slug.includes(pattern.replace(/\s+/g, ""))) {
@@ -92,11 +132,31 @@ export function applyAllFilters(
     impressionThreshold: number;
     clicksDropThreshold: number;
     topicPatterns: string;
+    minClicksThreshold?: number;
+    positionDropThreshold?: number;
+    includeUrlKeyword?: string;
+    excludeUrlKeyword?: string;
   }
 ): GSCCandidate[] {
   let result = filterFragmentUrls(candidates);
   result = filterByBlogPattern(result, config.blogUrlPattern);
   result = filterByThresholds(result, config);
+
+  // New filters (Alina's feedback)
+  if (config.minClicksThreshold != null) {
+    result = filterByMinClicks(result, config.minClicksThreshold);
+  }
+  if (config.positionDropThreshold != null) {
+    result = filterByPositionDrop(result, config.positionDropThreshold);
+  }
+  if (config.includeUrlKeyword != null || config.excludeUrlKeyword != null) {
+    result = filterByUrlKeyword(
+      result,
+      config.includeUrlKeyword ?? "",
+      config.excludeUrlKeyword ?? ""
+    );
+  }
+
   result = applyTopicFilter(result, config.topicPatterns);
 
   // Sort: important first, then by clicks drop (most severe first)
