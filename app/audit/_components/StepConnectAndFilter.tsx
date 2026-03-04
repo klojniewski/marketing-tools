@@ -461,7 +461,7 @@ export function StepConnectAndFilter({
                           href={candidate.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-accent hover:underline truncate block max-w-[200px]"
+                          className="text-accent hover:underline block whitespace-nowrap"
                           title={candidate.url}
                           onClick={(e) => e.stopPropagation()}
                         >
