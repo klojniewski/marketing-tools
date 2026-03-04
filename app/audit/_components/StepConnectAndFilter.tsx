@@ -26,50 +26,53 @@ const COMPARISON_MODES: { value: ComparisonMode; label: string; description: str
   },
 ];
 
-interface StepConfigurePeriodsProps {
+interface StepConnectAndFilterProps {
   onNext: () => void;
   onBack: () => void;
   siteUrl: string;
   candidates: GSCCandidate[];
   onCandidatesFetched: (candidates: GSCCandidate[]) => void;
+  selectedArticleUrl: string | null;
+  onArticleSelected: (url: string | null) => void;
+  onSiteSelected?: (siteUrl: string) => void;
 }
 
-export function StepConfigurePeriods({
+export function StepConnectAndFilter({
   onNext,
   onBack,
   siteUrl,
   candidates,
   onCandidatesFetched,
-}: StepConfigurePeriodsProps) {
+  selectedArticleUrl,
+  onArticleSelected,
+}: StepConnectAndFilterProps) {
   const [comparisonMode, setComparisonMode] = useState<ComparisonMode>("90d");
   const [impressionThreshold, setImpressionThreshold] = useState(500);
   const [clicksDropThreshold, setClicksDropThreshold] = useState(20);
   const [blogUrlPattern, setBlogUrlPattern] = useState("/blog/");
-  const [topicPatterns, setTopicPatterns] = useState(
-    "headless cms, sanity, nextjs, react, seo, content, migration"
-  );
+  const [topicPatterns, setTopicPatterns] = useState("");
+  // New filters
+  const [minClicksThreshold, setMinClicksThreshold] = useState(5);
+  const [positionDropThreshold, setPositionDropThreshold] = useState(0);
+  const [includeUrlKeyword, setIncludeUrlKeyword] = useState("");
+  const [excludeUrlKeyword, setExcludeUrlKeyword] = useState("");
+
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasFetched, setHasFetched] = useState(candidates.length > 0);
   const [usingMock, setUsingMock] = useState(false);
-  const [selectedUrls, setSelectedUrls] = useState<Set<string>>(new Set());
 
-  // Auto-select important pages when candidates change
+  // Clear article selection when candidates change
   useEffect(() => {
-    if (candidates.length > 0) {
-      setSelectedUrls(
-        new Set(
-          candidates
-            .filter((c) => c.isImportant && c.clicksDiffPercent < -20)
-            .map((c) => c.url)
-        )
-      );
+    if (candidates.length > 0 && !selectedArticleUrl) {
+      // Don't auto-select — user must click
     }
-  }, [candidates]);
+  }, [candidates, selectedArticleUrl]);
 
   async function handleFetchData() {
     setIsLoading(true);
     setError(null);
+    onArticleSelected(null);
 
     try {
       const ranges = computeDateRanges(comparisonMode);
@@ -85,10 +88,10 @@ export function StepConfigurePeriods({
         clicksDropThreshold,
         blogUrlPattern,
         topicPatterns,
-        minClicksThreshold: 0,
-        positionDropThreshold: 0,
-        includeUrlKeyword: "",
-        excludeUrlKeyword: "",
+        minClicksThreshold,
+        positionDropThreshold,
+        includeUrlKeyword,
+        excludeUrlKeyword,
       };
 
       const res = await fetch("/api/gsc/query", {
@@ -122,23 +125,6 @@ export function StepConfigurePeriods({
       setHasFetched(true);
       setUsingMock(true);
     });
-  }
-
-  function toggleUrl(url: string) {
-    setSelectedUrls((prev) => {
-      const next = new Set(prev);
-      if (next.has(url)) next.delete(url);
-      else next.add(url);
-      return next;
-    });
-  }
-
-  function selectAll() {
-    setSelectedUrls(new Set(candidates.map((c) => c.url)));
-  }
-
-  function selectNone() {
-    setSelectedUrls(new Set());
   }
 
   type SortKey = "url" | "clicksA" | "clicksB" | "clicksChange" | "impA" | "impB" | "impChange" | "posA" | "posShift";
@@ -175,7 +161,7 @@ export function StepConfigurePeriods({
     return sortAsc ? cmp : -cmp;
   });
 
-  const canProceed = candidates.length > 0 && selectedUrls.size > 0;
+  const canProceed = !!selectedArticleUrl;
 
   return (
     <div className="space-y-6">
@@ -183,8 +169,8 @@ export function StepConfigurePeriods({
         <p>
           We fetch your GSC data for two time windows and compare them. Pages
           where clicks or impressions dropped significantly between Period B
-          (older) and Period A (recent) are flagged as declining. The thresholds
-          below control what counts as &quot;significant.&quot;
+          (older) and Period A (recent) are flagged as declining. Select one
+          article to analyze in depth.
         </p>
       </InfoCallout>
 
@@ -221,16 +207,15 @@ export function StepConfigurePeriods({
         </div>
       </div>
 
-      {/* Thresholds */}
+      {/* Thresholds — existing + new */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
         <div>
           <label className="block text-sm font-medium mb-1">
             Min. Impressions (Period B)
-            <HelpIcon tooltip="Pages with fewer impressions than this in the baseline period are excluded. This filters out low-traffic pages that aren't worth auditing." />
+            <HelpIcon tooltip="Pages with fewer impressions than this in the baseline period are excluded." />
           </label>
           <p className="text-xs text-muted mb-2">
-            Only include pages that had at least this many impressions in the
-            older period.
+            Minimum impressions in the older period.
           </p>
           <input
             type="number"
@@ -242,10 +227,10 @@ export function StepConfigurePeriods({
         <div>
           <label className="block text-sm font-medium mb-1">
             Min. Clicks Drop (%)
-            <HelpIcon tooltip="The minimum percentage decrease in clicks to flag a page as declining. 20% is a good default — lower catches more pages but adds noise." />
+            <HelpIcon tooltip="The minimum percentage decrease in clicks to flag a page as declining." />
           </label>
           <p className="text-xs text-muted mb-2">
-            Flag pages where clicks dropped by more than this percentage.
+            Flag pages where clicks dropped by more than this %.
           </p>
           <div className="relative">
             <input
@@ -257,17 +242,46 @@ export function StepConfigurePeriods({
             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted text-sm">%</span>
           </div>
         </div>
+        <div>
+          <label className="block text-sm font-medium mb-1">
+            Min. Clicks (Period B)
+            <HelpIcon tooltip="Pages with fewer clicks than this in the baseline period are excluded. Filters out very low-traffic pages." />
+          </label>
+          <p className="text-xs text-muted mb-2">
+            Minimum clicks in the older period.
+          </p>
+          <input
+            type="number"
+            value={minClicksThreshold}
+            onChange={(e) => setMinClicksThreshold(Number(e.target.value))}
+            className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-1">
+            Min. Position Drop
+            <HelpIcon tooltip="Only show pages where average position dropped by at least this many positions. E.g. 3 means the page fell 3+ positions." />
+          </label>
+          <p className="text-xs text-muted mb-2">
+            Minimum absolute position drop (e.g. 3 positions).
+          </p>
+          <input
+            type="number"
+            value={positionDropThreshold}
+            onChange={(e) => setPositionDropThreshold(Number(e.target.value))}
+            className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+          />
+        </div>
       </div>
 
-      {/* URL filter */}
+      {/* URL filters */}
       <div>
         <label className="block text-sm font-medium mb-1">
           Blog URL Pattern
-          <HelpIcon tooltip="A substring to match blog URLs. Only pages whose URL contains this pattern will be included. For most sites, '/blog/' works well." />
+          <HelpIcon tooltip="Only pages whose URL contains this pattern will be included." />
         </label>
         <p className="text-xs text-muted mb-2">
-          We&apos;ll only analyze pages whose URL contains this string. This filters
-          out non-blog pages like product pages, docs, etc.
+          Filter to blog pages only. Leave empty to include all pages.
         </p>
         <input
           type="text"
@@ -278,21 +292,46 @@ export function StepConfigurePeriods({
         />
       </div>
 
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+        <div>
+          <label className="block text-sm font-medium mb-1">
+            Include URLs containing
+            <HelpIcon tooltip="Only show pages whose URL contains this keyword. Useful for focusing on a specific topic." />
+          </label>
+          <input
+            type="text"
+            value={includeUrlKeyword}
+            onChange={(e) => setIncludeUrlKeyword(e.target.value)}
+            placeholder="e.g. headless-cms"
+            className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-1">
+            Exclude URLs containing
+            <HelpIcon tooltip="Hide pages whose URL contains this keyword. Useful for filtering out TL;DR or irrelevant pages." />
+          </label>
+          <input
+            type="text"
+            value={excludeUrlKeyword}
+            onChange={(e) => setExcludeUrlKeyword(e.target.value)}
+            placeholder="e.g. tldr"
+            className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+          />
+        </div>
+      </div>
+
       {/* Topic patterns */}
       <div>
         <label className="block text-sm font-medium mb-1">
           Important Topics (comma-separated)
-          <HelpIcon tooltip="Pages matching these topics are flagged as 'important' in the results. This helps you prioritize — a drop on a core-business topic matters more than a drop on a tangential one." />
+          <HelpIcon tooltip="Pages matching these topics are flagged as 'important' in the results." />
         </label>
-        <p className="text-xs text-muted mb-2">
-          Pages matching these keywords will be marked as &quot;important&quot; so you can
-          prioritize them. Matches are checked against the URL slug and page
-          title.
-        </p>
         <textarea
           value={topicPatterns}
           onChange={(e) => setTopicPatterns(e.target.value)}
           rows={2}
+          placeholder="headless cms, sanity, nextjs, react"
           className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
         />
       </div>
@@ -332,7 +371,7 @@ export function StepConfigurePeriods({
         </button>
       </div>
 
-      {/* ─── Results section (appears after first fetch) ─── */}
+      {/* ─── Results section ─── */}
       {candidates.length > 0 && (
         <>
           <hr className="border-border" />
@@ -349,51 +388,45 @@ export function StepConfigurePeriods({
               <span className="text-muted">Pages found:</span>{" "}
               <span className="font-semibold">{candidates.length}</span>
             </div>
-            <div className="rounded-lg bg-blue-50 px-4 py-2">
-              <span className="text-muted">Selected:</span>{" "}
-              <span className="font-semibold text-accent">{selectedUrls.size}</span>
-            </div>
+            {selectedArticleUrl && (
+              <div className="rounded-lg bg-blue-50 px-4 py-2">
+                <span className="text-muted">Selected:</span>{" "}
+                <span className="font-semibold text-accent">1 article</span>
+              </div>
+            )}
             <div className="rounded-lg bg-emerald-50 px-4 py-2">
               <span className="text-muted">Important:</span>{" "}
               <span className="font-semibold text-emerald-700">
                 {candidates.filter((c) => c.isImportant).length}
               </span>
             </div>
-            <div className="ml-auto flex gap-2">
-              <button onClick={selectAll} className="text-xs text-accent hover:underline">
-                Select all
-              </button>
-              <span className="text-muted">|</span>
-              <button onClick={selectNone} className="text-xs text-accent hover:underline">
-                Select none
-              </button>
-            </div>
           </div>
 
-          {/* Table */}
+          <p className="text-sm text-muted">
+            Click a row to select an article for deep analysis.
+          </p>
+
+          {/* Table — single-select */}
           <div className="overflow-x-auto rounded-lg border border-border">
             <table className="w-full text-xs">
               <thead>
                 <tr className="bg-slate-50 text-left">
                   <th className="px-2 py-2 w-8"></th>
                   <SortHeader label="URL" sortKey="url" currentKey={sortKey} asc={sortAsc} onSort={handleSort} />
-                  <SortHeader label="Clicks A" sortKey="clicksA" currentKey={sortKey} asc={sortAsc} onSort={handleSort} align="right" tooltip="Clicks in the recent period (Period A)." />
-                  <SortHeader label="Clicks B" sortKey="clicksB" currentKey={sortKey} asc={sortAsc} onSort={handleSort} align="right" tooltip="Clicks in the baseline period (Period B)." />
-                  <SortHeader label="Clicks %" sortKey="clicksChange" currentKey={sortKey} asc={sortAsc} onSort={handleSort} align="right" tooltip="Percentage change in clicks from B → A. Negative means declining." />
-                  <SortHeader label="Imp. A" sortKey="impA" currentKey={sortKey} asc={sortAsc} onSort={handleSort} align="right" tooltip="Impressions in the recent period (Period A)." />
-                  <SortHeader label="Imp. B" sortKey="impB" currentKey={sortKey} asc={sortAsc} onSort={handleSort} align="right" tooltip="Impressions in the baseline period (Period B)." />
-                  <SortHeader label="Imp. %" sortKey="impChange" currentKey={sortKey} asc={sortAsc} onSort={handleSort} align="right" tooltip="Percentage change in impressions from B → A. Negative means declining." />
-                  <SortHeader label="Pos." sortKey="posA" currentKey={sortKey} asc={sortAsc} onSort={handleSort} align="right" tooltip="Average position in the recent period. Higher = further down in results." />
-                  <SortHeader label={"Pos. \u0394"} sortKey="posShift" currentKey={sortKey} asc={sortAsc} onSort={handleSort} align="right" tooltip="Position change. Positive (red) = dropped in rankings." />
-                  <th className="px-2 py-2 font-medium text-center whitespace-nowrap">
-                    Flags
-                    <HelpIcon tooltip="Imp = matches your topic keywords. Can = another page on your site competes for the same query." />
-                  </th>
+                  <SortHeader label="Clicks A" sortKey="clicksA" currentKey={sortKey} asc={sortAsc} onSort={handleSort} align="right" tooltip="Clicks in the recent period." />
+                  <SortHeader label="Clicks B" sortKey="clicksB" currentKey={sortKey} asc={sortAsc} onSort={handleSort} align="right" tooltip="Clicks in the baseline period." />
+                  <SortHeader label="Clicks %" sortKey="clicksChange" currentKey={sortKey} asc={sortAsc} onSort={handleSort} align="right" tooltip="Percentage change in clicks." />
+                  <SortHeader label="Imp. A" sortKey="impA" currentKey={sortKey} asc={sortAsc} onSort={handleSort} align="right" tooltip="Impressions in the recent period." />
+                  <SortHeader label="Imp. B" sortKey="impB" currentKey={sortKey} asc={sortAsc} onSort={handleSort} align="right" tooltip="Impressions in the baseline period." />
+                  <SortHeader label="Imp. %" sortKey="impChange" currentKey={sortKey} asc={sortAsc} onSort={handleSort} align="right" tooltip="Percentage change in impressions." />
+                  <SortHeader label="Pos." sortKey="posA" currentKey={sortKey} asc={sortAsc} onSort={handleSort} align="right" tooltip="Average position in recent period." />
+                  <SortHeader label={"Pos. \u0394"} sortKey="posShift" currentKey={sortKey} asc={sortAsc} onSort={handleSort} align="right" tooltip="Position change. Positive (red) = dropped." />
+                  <th className="px-2 py-2 font-medium text-center whitespace-nowrap">Flags</th>
                 </tr>
               </thead>
               <tbody>
                 {sortedCandidates.map((candidate) => {
-                  const isSelected = selectedUrls.has(candidate.url);
+                  const isSelected = selectedArticleUrl === candidate.url;
                   let slug: string;
                   try {
                     slug = new URL(candidate.url).pathname;
@@ -407,15 +440,19 @@ export function StepConfigurePeriods({
                   return (
                     <tr
                       key={candidate.url}
-                      className={`border-t border-border transition-colors ${
-                        isSelected ? "bg-blue-50/50" : "hover:bg-slate-50/50"
+                      onClick={() => onArticleSelected(isSelected ? null : candidate.url)}
+                      className={`border-t border-border transition-colors cursor-pointer ${
+                        isSelected
+                          ? "bg-blue-50 ring-1 ring-inset ring-accent/30"
+                          : "hover:bg-slate-50/50"
                       }`}
                     >
                       <td className="px-2 py-1.5">
                         <input
-                          type="checkbox"
+                          type="radio"
+                          name="selected-article"
                           checked={isSelected}
-                          onChange={() => toggleUrl(candidate.url)}
+                          onChange={() => onArticleSelected(isSelected ? null : candidate.url)}
                           className="accent-accent"
                         />
                       </td>
@@ -424,8 +461,9 @@ export function StepConfigurePeriods({
                           href={candidate.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-accent hover:underline truncate block max-w-[200px]"
+                          className="text-accent hover:underline block whitespace-nowrap"
                           title={candidate.url}
+                          onClick={(e) => e.stopPropagation()}
                         >
                           {slug}
                         </a>
@@ -501,16 +539,20 @@ export function StepConfigurePeriods({
             </table>
           </div>
 
-          {/* Cannibalization note */}
-          {candidates.some((c) => c.hasCannibalization) && (
-            <InfoCallout variant="warning" title="Cannibalization detected">
-              <p>
-                One or more pages are competing with another page on your site for
-                the same keywords. This splits your ranking authority and can hurt
-                both pages. In the results, we&apos;ll recommend whether to consolidate
-                these pages.
-              </p>
-            </InfoCallout>
+          {/* Selected article highlight */}
+          {selectedArticleUrl && (
+            <div className="rounded-lg border border-accent/30 bg-blue-50 px-4 py-3 flex items-center gap-3">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-accent shrink-0">
+                <path d="M22 11.08V12a10 10 0 11-5.93-9.14" />
+                <polyline points="22 4 12 14.01 9 11.01" />
+              </svg>
+              <div className="text-sm">
+                <span className="font-medium">Selected for analysis: </span>
+                <span className="text-accent">
+                  {(() => { try { return new URL(selectedArticleUrl).pathname; } catch { return selectedArticleUrl; } })()}
+                </span>
+              </div>
+            </div>
           )}
         </>
       )}
@@ -532,7 +574,7 @@ export function StepConfigurePeriods({
           disabled={!canProceed}
           className="inline-flex items-center gap-2 rounded-lg bg-accent px-6 py-2.5 text-white font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Next: Import Ahrefs Data ({selectedUrls.size} pages)
+          Next: Upload Ahrefs Data
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M9 18l6-6-6-6" />
           </svg>

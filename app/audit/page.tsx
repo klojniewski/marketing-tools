@@ -1,15 +1,15 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import type { WizardStep, GSCCandidate, LostKeyword, ParsedBacklink } from "@/lib/types";
+import type { WizardStep, GSCCandidate, ArticleKeyword, ManualCompetitor, ArticleAnalysis } from "@/lib/types";
 import { STEPS } from "@/lib/types";
 import { StepIndicator } from "./_components/StepIndicator";
 import { StepGSCConnect } from "./_components/StepGSCConnect";
-import { StepConfigurePeriods } from "./_components/StepConfigurePeriods";
-import { StepUploadAhrefs } from "./_components/StepUploadAhrefs";
-import { StepKeywordReview } from "./_components/StepKeywordReview";
-import { StepProcessing } from "./_components/StepProcessing";
-import { StepResults } from "./_components/StepResults";
+import { StepConnectAndFilter } from "./_components/StepConnectAndFilter";
+import { StepSelectArticle } from "./_components/StepSelectArticle";
+import { StepTargetKeyword } from "./_components/StepTargetKeyword";
+import { StepCompetitors } from "./_components/StepCompetitors";
+import { StepAnalyze } from "./_components/StepAnalyze";
 
 interface GSCSite {
   siteUrl: string;
@@ -19,12 +19,24 @@ interface GSCSite {
 function AuditWizard() {
   const [currentStep, setCurrentStep] = useState<WizardStep>(1);
 
-  // Shared state lifted from child components
-  const [gscSites, setGscSites] = useState<GSCSite[]>([]);
+  // Step 1: GSC connect
   const [selectedSiteUrl, setSelectedSiteUrl] = useState("");
   const [candidates, setCandidates] = useState<GSCCandidate[]>([]);
-  const [lostKeywords, setLostKeywords] = useState<LostKeyword[]>([]);
-  const [backlinks, setBacklinks] = useState<ParsedBacklink[]>([]);
+
+  // Step 2: Single article selection
+  const [selectedArticleUrl, setSelectedArticleUrl] = useState<string | null>(null);
+
+  // Step 3: Article-specific keywords from Ahrefs upload
+  const [articleKeywords, setArticleKeywords] = useState<ArticleKeyword[]>([]);
+
+  // Step 4: Target keyword
+  const [targetKeyword, setTargetKeyword] = useState<string | null>(null);
+
+  // Step 5: Competitors
+  const [competitors, setCompetitors] = useState<ManualCompetitor[]>([]);
+
+  // Step 6: Analysis result
+  const [analysisResult, setAnalysisResult] = useState<ArticleAnalysis | null>(null);
 
   const stepInfo = STEPS.find((s) => s.number === currentStep)!;
 
@@ -40,12 +52,19 @@ function AuditWizard() {
     setSelectedSiteUrl(siteUrl);
   }, []);
 
-  const handleSitesLoaded = useCallback((sites: GSCSite[]) => {
-    setGscSites(sites);
-  }, []);
+  const handleSitesLoaded = useCallback(() => {}, []);
 
   const handleCandidatesFetched = useCallback((newCandidates: GSCCandidate[]) => {
     setCandidates(newCandidates);
+  }, []);
+
+  const handleArticleSelected = useCallback((url: string | null) => {
+    setSelectedArticleUrl(url);
+    // Reset downstream state when article changes
+    setArticleKeywords([]);
+    setTargetKeyword(null);
+    setCompetitors([]);
+    setAnalysisResult(null);
   }, []);
 
   return (
@@ -70,6 +89,7 @@ function AuditWizard() {
           <p className="text-muted mt-1">{stepInfo.subtitle}</p>
         </div>
 
+        {/* Step 1: Connect GSC */}
         {currentStep === 1 && (
           <StepGSCConnect
             onNext={goNext}
@@ -77,35 +97,66 @@ function AuditWizard() {
             onSitesLoaded={handleSitesLoaded}
           />
         )}
+
+        {/* Step 2: Filter & Select Article */}
         {currentStep === 2 && (
-          <StepConfigurePeriods
+          <StepConnectAndFilter
             onNext={goNext}
             onBack={goBack}
             siteUrl={selectedSiteUrl}
             candidates={candidates}
             onCandidatesFetched={handleCandidatesFetched}
+            selectedArticleUrl={selectedArticleUrl}
+            onArticleSelected={handleArticleSelected}
           />
         )}
+
+        {/* Step 3: Import Ahrefs */}
         {currentStep === 3 && (
-          <StepUploadAhrefs
+          <StepSelectArticle
             onNext={goNext}
             onBack={goBack}
-            candidateUrls={candidates.map((c) => c.url)}
-            lostKeywords={lostKeywords}
-            onKeywordsParsed={setLostKeywords}
-            onBacklinksParsed={setBacklinks}
+            selectedArticleUrl={selectedArticleUrl!}
+            articleKeywords={articleKeywords}
+            onKeywordsParsed={setArticleKeywords}
           />
         )}
+
+        {/* Step 4: Target Keyword */}
         {currentStep === 4 && (
-          <StepKeywordReview
+          <StepTargetKeyword
             onNext={goNext}
             onBack={goBack}
-            keywords={lostKeywords}
-            onKeywordsUpdated={setLostKeywords}
+            keywords={articleKeywords}
+            targetKeyword={targetKeyword}
+            onTargetKeywordSelected={setTargetKeyword}
+            articleUrl={selectedArticleUrl!}
           />
         )}
-        {currentStep === 5 && <StepProcessing onNext={goNext} onBack={goBack} />}
-        {currentStep === 6 && <StepResults onBack={goBack} />}
+
+        {/* Step 5: Competitors */}
+        {currentStep === 5 && (
+          <StepCompetitors
+            onNext={goNext}
+            onBack={goBack}
+            competitors={competitors}
+            onCompetitorsUpdated={setCompetitors}
+            targetKeyword={targetKeyword!}
+          />
+        )}
+
+        {/* Step 6: Analyze + Results */}
+        {currentStep === 6 && (
+          <StepAnalyze
+            onBack={goBack}
+            articleUrl={selectedArticleUrl!}
+            targetKeyword={targetKeyword!}
+            articleKeywords={articleKeywords}
+            competitors={competitors}
+            analysisResult={analysisResult}
+            onAnalysisComplete={setAnalysisResult}
+          />
+        )}
       </main>
     </div>
   );

@@ -23,12 +23,16 @@ export async function POST(request: NextRequest) {
       config
     );
 
-    // Apply all filters
+    // Apply all filters (including new ones from Alina's feedback)
     const candidates = applyAllFilters(rawCandidates, {
       blogUrlPattern: config.blogUrlPattern,
       impressionThreshold: config.impressionThreshold,
       clicksDropThreshold: config.clicksDropThreshold,
       topicPatterns: config.topicPatterns,
+      minClicksThreshold: config.minClicksThreshold,
+      positionDropThreshold: config.positionDropThreshold,
+      includeUrlKeyword: config.includeUrlKeyword,
+      excludeUrlKeyword: config.excludeUrlKeyword,
     });
 
     return NextResponse.json({

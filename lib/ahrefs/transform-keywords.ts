@@ -1,17 +1,15 @@
 import type { LostKeyword } from "@/lib/types";
 import { matchKeywordToPage } from "./match-urls";
-import { computeValueScore, detectJunk } from "./scoring";
+import { computeValueScore } from "./scoring";
 
 /**
- * Column mapping from Ahrefs "Organic Keywords" export:
+ * Column mapping from Ahrefs "Organic Keywords" (domain-level) export:
  *   "Keyword" → keyword
  *   "Volume" → volume
- *   "Previous organic traffic" → trafficBefore
  *   "Current organic traffic" → traffic
  *   "Organic traffic change" → trafficChange
  *   "Previous average position" → positionBefore
  *   "Current average position" → position
- *   KD → not in this export, defaults to undefined
  */
 
 function parseNum(val: string | undefined): number {
@@ -37,7 +35,6 @@ export function transformToKeywords(
     const positionBefore = parseNum(row["Previous average position"]);
     const position = parseNum(row["Current average position"]);
 
-    // Check for KD column (some exports include it)
     const kdRaw = row["Keyword Difficulty"] || row["KD"];
     const kd = kdRaw ? parseNum(kdRaw) : undefined;
 
@@ -51,8 +48,6 @@ export function transformToKeywords(
       kd,
     });
 
-    const { isJunk, junkReason } = detectJunk({ volume, kd, keyword });
-
     keywords.push({
       keyword,
       volume,
@@ -62,9 +57,7 @@ export function transformToKeywords(
       trafficChange,
       kd,
       valueScore,
-      isJunk,
-      junkReason,
-      isSelected: !isJunk,
+      isSelected: true,
       candidateUrl,
     });
   }

@@ -1,6 +1,10 @@
 import Papa from "papaparse";
 
-export type AhrefsFileType = "organic-keywords" | "backlinks" | "unknown";
+export type AhrefsFileType =
+  | "article-keywords"
+  | "organic-keywords"
+  | "backlinks"
+  | "unknown";
 
 export interface ParsedCSV {
   fileType: AhrefsFileType;
@@ -10,11 +14,21 @@ export interface ParsedCSV {
   fileName: string;
 }
 
+// Article-level Ahrefs export: has "Current position" + "URL" columns
+const ARTICLE_KEYWORDS_MARKERS = [
+  "Keyword",
+  "Volume",
+  "Current position",
+  "URL",
+];
+
+// Domain-level Ahrefs export: has "Current average position" (no URL column)
 const ORGANIC_KEYWORDS_MARKERS = [
   "Keyword",
   "Volume",
   "Current organic traffic",
 ];
+
 const BACKLINKS_MARKERS = [
   "Referring page URL",
   "Domain rating",
@@ -23,6 +37,9 @@ const BACKLINKS_MARKERS = [
 
 export function detectFileType(headers: string[]): AhrefsFileType {
   const normalized = headers.map((h) => h.replace(/^"|"$/g, "").trim());
+  // Check article-level first (more specific — has URL column)
+  if (ARTICLE_KEYWORDS_MARKERS.every((m) => normalized.includes(m)))
+    return "article-keywords";
   if (ORGANIC_KEYWORDS_MARKERS.every((m) => normalized.includes(m)))
     return "organic-keywords";
   if (BACKLINKS_MARKERS.every((m) => normalized.includes(m)))
