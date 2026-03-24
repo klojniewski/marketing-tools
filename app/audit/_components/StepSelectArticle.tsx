@@ -10,6 +10,12 @@ import {
 } from "@/lib/ahrefs/transform-article-keywords";
 import { InfoCallout } from "./InfoCallout";
 
+function buildAhrefsLink(articleUrl: string): string {
+  // Strip protocol for the target param
+  const target = articleUrl.replace(/^https?:\/\//, "");
+  return `https://app.ahrefs.com/v2-site-explorer/organic-keywords?target=${encodeURIComponent(target)}&mode=prefix&compareDate=prev3Months&country=allGlobal&currentDate=today`;
+}
+
 interface StepSelectArticleProps {
   onNext: () => void;
   onBack: () => void;
@@ -123,6 +129,24 @@ export function StepSelectArticle({
       <div className="rounded-lg border border-border bg-card p-4">
         <p className="text-xs text-muted mb-1">Analyzing article:</p>
         <p className="text-sm font-mono break-all">{selectedArticleUrl}</p>
+        <a
+          href={buildAhrefsLink(selectedArticleUrl)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-2 inline-flex items-center gap-1 text-xs text-accent hover:underline"
+        >
+          Open in Ahrefs Site Explorer
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" />
+          </svg>
+        </a>
       </div>
 
       {/* Instructions */}
@@ -276,6 +300,46 @@ export function StepSelectArticle({
                 {stats.avgPositionChange}
               </span>
             </p>
+          )}
+
+          {/* Keyword breakdown by status */}
+          {articleKeywords.length > 0 && (
+            <div className="mt-4 grid grid-cols-4 gap-3">
+              {(
+                [
+                  { status: "ranking", label: "Ranking", color: "text-green-400", border: "border-green-400/20" },
+                  { status: "declined", label: "Declined", color: "text-yellow-400", border: "border-yellow-400/20" },
+                  { status: "lost", label: "Lost", color: "text-red-400", border: "border-red-400/20" },
+                  { status: "new", label: "New", color: "text-blue-400", border: "border-blue-400/20" },
+                ] as const
+              ).map(({ status, label, color, border }) => {
+                const keywords = articleKeywords.filter(
+                  (k) => k.status === status
+                );
+                if (keywords.length === 0) return null;
+                return (
+                  <div
+                    key={status}
+                    className={`rounded-md border ${border} bg-white/5 p-3`}
+                  >
+                    <p className={`text-xs font-medium ${color} mb-2`}>
+                      {label} ({keywords.length})
+                    </p>
+                    <ul className="space-y-1">
+                      {keywords.map((k) => (
+                        <li
+                          key={k.keyword}
+                          className="text-xs text-muted truncate"
+                          title={`${k.keyword} — pos: ${k.position || "—"} (was ${k.positionPrevious || "—"})`}
+                        >
+                          {k.keyword}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
       )}

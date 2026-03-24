@@ -32,11 +32,18 @@ function normalizeUrl(url: string): string {
 function deriveStatus(
   position: number,
   positionPrevious: number,
-  positionChange: number
+  positionChange: number,
+  hasCurrentPosition: boolean,
+  hasPreviousPosition: boolean
 ): ArticleKeyword["status"] {
-  if (positionPrevious === 0 && position > 0) return "new";
-  if (position === 0 || position > 100) return "lost";
-  if (positionChange < -2) return "declined";
+  // No current position at all → lost
+  if (!hasCurrentPosition) return "lost";
+  // Has current but no previous → newly ranking
+  if (hasCurrentPosition && !hasPreviousPosition) return "new";
+  // Position dropped out of top 100
+  if (position > 100) return "lost";
+  // Significant decline (position number went up by >2)
+  if (positionChange > 2) return "declined";
   return "ranking";
 }
 
@@ -57,16 +64,35 @@ export function transformArticleKeywords(
     if (url && normalizeUrl(url) !== normalizedSelected) continue;
 
     const volume = parseNum(row["Volume"]);
-    const position = parseNum(row["Current position"]);
-    const positionPrevious = parseNum(row["Previous position"]);
-    const positionChange = positionPrevious - position;
+
+    const currentPosRaw =
+      row["Current position"] || row["Current average position"] || "";
+    const previousPosRaw =
+      row["Previous position"] || row["Previous average position"] || "";
+    const hasCurrentPosition = currentPosRaw.trim() !== "";
+    const hasPreviousPosition = previousPosRaw.trim() !== "";
+
+    const position = parseNum(currentPosRaw);
+    const positionPrevious = parseNum(previousPosRaw);
+    const positionChange =
+      row["Position change"] !== undefined
+        ? parseNum(row["Position change"])
+        : positionPrevious > 0 && position > 0
+          ? position - positionPrevious
+          : 0;
     const traffic = parseNum(row["Current organic traffic"]);
     const trafficChange = parseNum(row["Organic traffic change"]);
 
     const kdRaw = row["Keyword Difficulty"] || row["KD"];
     const kd = kdRaw ? parseNum(kdRaw) : undefined;
 
-    const status = deriveStatus(position, positionPrevious, positionChange);
+    const status = deriveStatus(
+      position,
+      positionPrevious,
+      positionChange,
+      hasCurrentPosition,
+      hasPreviousPosition
+    );
 
     const valueScore = computeValueScore({
       volume,
