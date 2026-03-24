@@ -38,11 +38,11 @@ const STAGE_LABELS: Record<AnalysisStage, string> = {
 function priorityColor(p: string) {
   switch (p) {
     case "high":
-      return "bg-red-900/30 text-red-400";
+      return "bg-red-100 text-red-700";
     case "medium":
-      return "bg-yellow-900/30 text-yellow-400";
+      return "bg-yellow-100 text-yellow-700";
     default:
-      return "bg-blue-900/30 text-blue-400";
+      return "bg-blue-100 text-blue-700";
   }
 }
 
@@ -63,17 +63,17 @@ function categoryLabel(c: string) {
 
 function categoryColor(c: string) {
   const colors: Record<string, string> = {
-    "heading-restructure": "bg-purple-900/30 text-purple-400",
-    "missing-content": "bg-orange-900/30 text-orange-400",
-    faq: "bg-cyan-900/30 text-cyan-400",
-    "featured-snippet": "bg-emerald-900/30 text-emerald-400",
-    tldr: "bg-indigo-900/30 text-indigo-400",
-    "cross-linking": "bg-blue-900/30 text-blue-400",
-    "meta-tags": "bg-pink-900/30 text-pink-400",
-    eeat: "bg-amber-900/30 text-amber-400",
-    aeo: "bg-teal-900/30 text-teal-400",
+    "heading-restructure": "bg-purple-100 text-purple-700",
+    "missing-content": "bg-orange-100 text-orange-700",
+    faq: "bg-cyan-100 text-cyan-700",
+    "featured-snippet": "bg-emerald-100 text-emerald-700",
+    tldr: "bg-indigo-100 text-indigo-700",
+    "cross-linking": "bg-blue-100 text-blue-700",
+    "meta-tags": "bg-pink-100 text-pink-700",
+    eeat: "bg-amber-100 text-amber-700",
+    aeo: "bg-teal-100 text-teal-700",
   };
-  return colors[c] || "bg-white/10 text-white";
+  return colors[c] || "bg-slate-100 text-slate-700";
 }
 
 export function StepAnalyze({
@@ -181,9 +181,9 @@ export function StepAnalyze({
                     key={s}
                     className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors ${
                       isActive
-                        ? "bg-white/10 text-white"
+                        ? "bg-accent/10 text-accent font-medium"
                         : isDone
-                        ? "text-green-400"
+                        ? "text-green-600"
                         : "text-muted"
                     }`}
                   >
@@ -195,7 +195,7 @@ export function StepAnalyze({
                         fill="none"
                         stroke="currentColor"
                         strokeWidth="2"
-                        className="text-green-400"
+                        className="text-green-600"
                       >
                         <polyline points="20 6 9 17 4 12" />
                       </svg>
@@ -230,7 +230,7 @@ export function StepAnalyze({
     return (
       <div className="space-y-6">
         <div className="rounded-lg border border-red-900/50 bg-red-900/10 p-6">
-          <h3 className="font-semibold text-red-400 mb-2">Analysis Failed</h3>
+          <h3 className="font-semibold text-red-600 mb-2">Analysis Failed</h3>
           <p className="text-sm text-muted">{error}</p>
           <button
             onClick={runAnalysis}
@@ -259,18 +259,18 @@ export function StepAnalyze({
         <span
           className={`rounded-full px-3 py-1 text-xs font-medium ${
             result.recoveryLikelihood === "High"
-              ? "bg-green-900/30 text-green-400"
+              ? "bg-green-100 text-green-400"
               : result.recoveryLikelihood === "Medium"
-              ? "bg-yellow-900/30 text-yellow-400"
-              : "bg-red-900/30 text-red-400"
+              ? "bg-yellow-100 text-yellow-600"
+              : "bg-red-100 text-red-600"
           }`}
         >
           Recovery: {result.recoveryLikelihood}
         </span>
-        <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-medium">
+        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium">
           Effort: {result.estimatedEffort}
         </span>
-        <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-medium">
+        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium">
           {result.recommendations.length} recommendations
         </span>
       </div>
@@ -322,7 +322,7 @@ export function StepAnalyze({
                     <td
                       className={`px-4 py-2 text-right tabular-nums ${
                         c.avgPositionChange < 0
-                          ? "text-red-400"
+                          ? "text-red-600"
                           : "text-green-400"
                       }`}
                     >
@@ -333,10 +333,10 @@ export function StepAnalyze({
                       <span
                         className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs ${
                           c.trend === "declining"
-                            ? "bg-red-900/30 text-red-400"
+                            ? "bg-red-100 text-red-600"
                             : c.trend === "improving"
-                            ? "bg-green-900/30 text-green-400"
-                            : "bg-white/10 text-muted"
+                            ? "bg-green-100 text-green-400"
+                            : "bg-slate-100 text-muted"
                         }`}
                       >
                         {c.trend}
@@ -360,7 +360,7 @@ export function StepAnalyze({
           <h4 className="text-sm font-semibold mb-1">
             Intent Analysis
             {result.diagnosis.intentAnalysis.mismatchDetected && (
-              <span className="ml-2 text-yellow-400 text-xs font-normal">
+              <span className="ml-2 text-yellow-600 text-xs font-normal">
                 Mismatch detected
               </span>
             )}
@@ -377,7 +377,7 @@ export function StepAnalyze({
             <ul className="space-y-1">
               {result.diagnosis.topicalGaps.map((g, i) => (
                 <li key={i} className="flex items-start gap-2 text-sm">
-                  <span className="text-red-400 mt-0.5">-</span>
+                  <span className="text-red-600 mt-0.5">-</span>
                   <span>{g}</span>
                 </li>
               ))}
@@ -415,8 +415,8 @@ export function StepAnalyze({
                 onClick={() => setActiveTab(i)}
                 className={`rounded-md px-3 py-1.5 text-xs whitespace-nowrap transition-colors ${
                   activeTab === i
-                    ? "bg-white/10 text-white"
-                    : "text-muted hover:text-white"
+                    ? "bg-accent text-white"
+                    : "text-muted hover:text-foreground"
                 }`}
               >
                 Competitor {i + 1}
@@ -477,10 +477,16 @@ export function StepAnalyze({
           Back
         </button>
         <button
-          onClick={() => {
+          onClick={(e) => {
             navigator.clipboard.writeText(
               JSON.stringify(result, null, 2)
             );
+            const btn = e.currentTarget;
+            const original = btn.textContent;
+            btn.textContent = "Copied!";
+            setTimeout(() => {
+              btn.textContent = original;
+            }, 2000);
           }}
           className="rounded-md border border-border px-4 py-2 text-sm hover:bg-card"
         >
@@ -516,7 +522,7 @@ function CompetitorCard({
       </div>
 
       <div className="flex gap-3">
-        <span className="rounded-full bg-white/10 px-2 py-0.5 text-xs">
+        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs">
           {comp.internalLinkCount} internal links
         </span>
         {comp.hasFAQ && (
@@ -558,7 +564,7 @@ function CompetitorCard({
           <ul className="space-y-1">
             {comp.missingFromOurs.map((s, i) => (
               <li key={i} className="flex items-start gap-2 text-sm">
-                <span className="text-red-400 mt-0.5">+</span>
+                <span className="text-red-600 mt-0.5">+</span>
                 <span>{s}</span>
               </li>
             ))}

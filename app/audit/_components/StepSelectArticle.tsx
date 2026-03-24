@@ -128,12 +128,19 @@ export function StepSelectArticle({
       {/* Selected article */}
       <div className="rounded-lg border border-border bg-card p-4">
         <p className="text-xs text-muted mb-1">Analyzing article:</p>
-        <p className="text-sm font-mono break-all">{selectedArticleUrl}</p>
+        <a
+          href={selectedArticleUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block text-sm font-mono break-all text-accent hover:underline"
+        >
+          {selectedArticleUrl}
+        </a>
         <a
           href={buildAhrefsLink(selectedArticleUrl)}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-2 inline-flex items-center gap-1 text-xs text-accent hover:underline"
+          className="mt-1 inline-flex items-center gap-1 text-xs text-accent hover:underline"
         >
           Open in Ahrefs Site Explorer
           <svg
@@ -174,7 +181,7 @@ export function StepSelectArticle({
           onClick={() => fileInputRef.current?.click()}
           className={`rounded-lg border-2 border-dashed p-8 text-center transition-colors cursor-pointer ${
             isDragging
-              ? "border-white/40 bg-white/5"
+              ? "border-accent bg-blue-50"
               : "border-border hover:border-white/20"
           }`}
         >
@@ -185,10 +192,10 @@ export function StepSelectArticle({
             className="hidden"
             onChange={(e) => e.target.files && handleFiles(e.target.files)}
           />
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-white/5">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-50">
             {parsing ? (
               <svg
-                className="animate-spin text-white/60"
+                className="animate-spin text-accent"
                 width="24"
                 height="24"
                 viewBox="0 0 24 24"
@@ -226,7 +233,7 @@ export function StepSelectArticle({
         <div className="rounded-lg border border-border bg-card p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <div className="flex h-8 w-8 items-center justify-center rounded bg-green-900/30">
+              <div className="flex h-8 w-8 items-center justify-center rounded bg-green-100">
                 <svg
                   width="16"
                   height="16"
@@ -234,7 +241,7 @@ export function StepSelectArticle({
                   fill="none"
                   stroke="currentColor"
                   strokeWidth="2"
-                  className="text-green-400"
+                  className="text-green-600"
                 >
                   <polyline points="20 6 9 17 4 12" />
                 </svg>
@@ -248,7 +255,7 @@ export function StepSelectArticle({
             </div>
             <button
               onClick={handleClear}
-              className="text-xs text-muted hover:text-red-400 transition-colors"
+              className="text-xs text-muted hover:text-red-600 transition-colors"
             >
               Remove
             </button>
@@ -257,28 +264,28 @@ export function StepSelectArticle({
           {/* Stats grid */}
           {stats && (
             <div className="grid grid-cols-5 gap-3">
-              <div className="rounded-md bg-white/5 p-3 text-center">
+              <div className="rounded-md bg-slate-50 p-3 text-center">
                 <p className="text-lg font-bold">{stats.total}</p>
                 <p className="text-xs text-muted">Total</p>
               </div>
-              <div className="rounded-md bg-white/5 p-3 text-center">
-                <p className="text-lg font-bold text-green-400">
+              <div className="rounded-md bg-slate-50 p-3 text-center">
+                <p className="text-lg font-bold text-green-600">
                   {stats.ranking}
                 </p>
                 <p className="text-xs text-muted">Ranking</p>
               </div>
-              <div className="rounded-md bg-white/5 p-3 text-center">
-                <p className="text-lg font-bold text-yellow-400">
+              <div className="rounded-md bg-slate-50 p-3 text-center">
+                <p className="text-lg font-bold text-yellow-600">
                   {stats.declined}
                 </p>
                 <p className="text-xs text-muted">Declined</p>
               </div>
-              <div className="rounded-md bg-white/5 p-3 text-center">
-                <p className="text-lg font-bold text-red-400">{stats.lost}</p>
+              <div className="rounded-md bg-slate-50 p-3 text-center">
+                <p className="text-lg font-bold text-red-600">{stats.lost}</p>
                 <p className="text-xs text-muted">Lost</p>
               </div>
-              <div className="rounded-md bg-white/5 p-3 text-center">
-                <p className="text-lg font-bold text-blue-400">
+              <div className="rounded-md bg-slate-50 p-3 text-center">
+                <p className="text-lg font-bold text-blue-600">
                   {stats.newKeywords}
                 </p>
                 <p className="text-xs text-muted">New</p>
@@ -292,8 +299,8 @@ export function StepSelectArticle({
               <span
                 className={
                   stats.avgPositionChange >= 0
-                    ? "text-green-400"
-                    : "text-red-400"
+                    ? "text-green-600"
+                    : "text-red-600"
                 }
               >
                 {stats.avgPositionChange >= 0 ? "+" : ""}
@@ -307,10 +314,10 @@ export function StepSelectArticle({
             <div className="mt-4 grid grid-cols-4 gap-3">
               {(
                 [
-                  { status: "ranking", label: "Ranking", color: "text-green-400", border: "border-green-400/20" },
-                  { status: "declined", label: "Declined", color: "text-yellow-400", border: "border-yellow-400/20" },
-                  { status: "lost", label: "Lost", color: "text-red-400", border: "border-red-400/20" },
-                  { status: "new", label: "New", color: "text-blue-400", border: "border-blue-400/20" },
+                  { status: "ranking", label: "Ranking", color: "text-green-600", border: "border-green-200" },
+                  { status: "declined", label: "Declined", color: "text-yellow-600", border: "border-yellow-200" },
+                  { status: "lost", label: "Lost", color: "text-red-600", border: "border-red-200" },
+                  { status: "new", label: "New", color: "text-blue-600", border: "border-blue-200" },
                 ] as const
               ).map(({ status, label, color, border }) => {
                 const keywords = articleKeywords.filter(
@@ -320,7 +327,7 @@ export function StepSelectArticle({
                 return (
                   <div
                     key={status}
-                    className={`rounded-md border ${border} bg-white/5 p-3`}
+                    className={`rounded-md border ${border} bg-slate-50 p-3`}
                   >
                     <p className={`text-xs font-medium ${color} mb-2`}>
                       {label} ({keywords.length})
