@@ -24,25 +24,25 @@ function statusBadge(status: ArticleKeyword["status"]) {
   switch (status) {
     case "lost":
       return (
-        <span className="inline-flex items-center rounded-full bg-red-900/30 px-2 py-0.5 text-xs text-red-400">
+        <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800">
           Lost
         </span>
       );
     case "declined":
       return (
-        <span className="inline-flex items-center rounded-full bg-yellow-900/30 px-2 py-0.5 text-xs text-yellow-400">
+        <span className="inline-flex items-center rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">
           Declined
         </span>
       );
     case "new":
       return (
-        <span className="inline-flex items-center rounded-full bg-blue-900/30 px-2 py-0.5 text-xs text-blue-400">
+        <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">
           New
         </span>
       );
     default:
       return (
-        <span className="inline-flex items-center rounded-full bg-green-900/30 px-2 py-0.5 text-xs text-green-400">
+        <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
           Ranking
         </span>
       );
@@ -109,7 +109,7 @@ export function StepTargetKeyword({
 
       {/* Selected keyword badge */}
       {selectedKw && (
-        <div className="rounded-lg border border-white/20 bg-white/5 p-4">
+        <div className="rounded-lg border border-accent/30 bg-accent-light p-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-muted mb-1">Target keyword:</p>
@@ -117,10 +117,10 @@ export function StepTargetKeyword({
             </div>
             <div className="text-right text-xs text-muted space-y-0.5">
               <p>
-                Vol: <span className="text-white">{selectedKw.volume}</span>
+                Vol: <span className="text-foreground">{selectedKw.volume}</span>
               </p>
               <p>
-                Pos: <span className="text-white">{selectedKw.position}</span>{" "}
+                Pos: <span className="text-foreground">{selectedKw.position}</span>{" "}
                 (was {selectedKw.positionPrevious})
               </p>
               <p>
@@ -128,8 +128,8 @@ export function StepTargetKeyword({
                 <span
                   className={
                     selectedKw.positionChange >= 0
-                      ? "text-green-400"
-                      : "text-red-400"
+                      ? "text-green-600"
+                      : "text-red-600"
                   }
                 >
                   {selectedKw.positionChange >= 0 ? "+" : ""}
@@ -154,8 +154,8 @@ export function StepTargetKeyword({
               onClick={() => setFilterStatus(s)}
               className={`rounded-full px-3 py-1 text-xs transition-colors ${
                 filterStatus === s
-                  ? "bg-white/10 text-white"
-                  : "text-muted hover:text-white"
+                  ? "bg-accent-light text-accent font-medium"
+                  : "text-muted hover:text-foreground"
               }`}
             >
               {s === "all" ? `All (${keywords.length})` : s.charAt(0).toUpperCase() + s.slice(1)}
@@ -170,39 +170,39 @@ export function StepTargetKeyword({
               <tr className="text-xs text-muted">
                 <th className="text-left px-4 py-2 w-8"></th>
                 <th
-                  className="text-left px-4 py-2 cursor-pointer hover:text-white"
+                  className="text-left px-4 py-2 cursor-pointer hover:text-foreground"
                   onClick={() => toggleSort("keyword")}
                 >
                   Keyword{sortIcon("keyword")}
                 </th>
                 <th
-                  className="text-right px-4 py-2 cursor-pointer hover:text-white"
+                  className="text-right px-4 py-2 cursor-pointer hover:text-foreground"
                   onClick={() => toggleSort("volume")}
                 >
                   Volume{sortIcon("volume")}
                 </th>
                 <th
-                  className="text-right px-4 py-2 cursor-pointer hover:text-white"
+                  className="text-right px-4 py-2 cursor-pointer hover:text-foreground"
                   onClick={() => toggleSort("position")}
                 >
                   Position{sortIcon("position")}
                 </th>
                 <th className="text-right px-4 py-2">Previous</th>
                 <th
-                  className="text-right px-4 py-2 cursor-pointer hover:text-white"
+                  className="text-right px-4 py-2 cursor-pointer hover:text-foreground"
                   onClick={() => toggleSort("positionChange")}
                 >
                   Change{sortIcon("positionChange")}
                 </th>
                 <th
-                  className="text-right px-4 py-2 cursor-pointer hover:text-white"
+                  className="text-right px-4 py-2 cursor-pointer hover:text-foreground"
                   onClick={() => toggleSort("trafficChange")}
                 >
                   Traffic &Delta;{sortIcon("trafficChange")}
                 </th>
                 <th className="text-center px-4 py-2">Status</th>
                 <th
-                  className="text-right px-4 py-2 cursor-pointer hover:text-white"
+                  className="text-right px-4 py-2 cursor-pointer hover:text-foreground"
                   onClick={() => toggleSort("valueScore")}
                 >
                   Score{sortIcon("valueScore")}
@@ -218,20 +218,20 @@ export function StepTargetKeyword({
                     onClick={() => onTargetKeywordSelected(kw.keyword)}
                     className={`cursor-pointer transition-colors border-b border-border/50 ${
                       isSelected
-                        ? "bg-white/10"
-                        : "hover:bg-white/5"
+                        ? "bg-accent-light"
+                        : "hover:bg-slate-50"
                     }`}
                   >
                     <td className="px-4 py-2">
                       <div
                         className={`h-4 w-4 rounded-full border-2 flex items-center justify-center ${
                           isSelected
-                            ? "border-white bg-white"
+                            ? "border-accent bg-accent"
                             : "border-muted"
                         }`}
                       >
                         {isSelected && (
-                          <div className="h-2 w-2 rounded-full bg-black" />
+                          <div className="h-2 w-2 rounded-full bg-white" />
                         )}
                       </div>
                     </td>
@@ -250,9 +250,9 @@ export function StepTargetKeyword({
                     <td
                       className={`px-4 py-2 text-right tabular-nums font-medium ${
                         kw.positionChange > 0
-                          ? "text-green-400"
+                          ? "text-green-600"
                           : kw.positionChange < 0
-                          ? "text-red-400"
+                          ? "text-red-600"
                           : "text-muted"
                       }`}
                     >
@@ -262,9 +262,9 @@ export function StepTargetKeyword({
                     <td
                       className={`px-4 py-2 text-right tabular-nums ${
                         kw.trafficChange > 0
-                          ? "text-green-400"
+                          ? "text-green-600"
                           : kw.trafficChange < 0
-                          ? "text-red-400"
+                          ? "text-red-600"
                           : "text-muted"
                       }`}
                     >

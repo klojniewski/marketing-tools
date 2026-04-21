@@ -161,10 +161,17 @@ export function StepCompetitors({
 
       <InfoCallout title="How to find competitors">
         <p>
-          Search Google for <strong>&ldquo;{targetKeyword}&rdquo;</strong> and add
-          the top 3-5 ranking article URLs that compete with your content.
-          The analysis will compare their structure, subtopics, and SEO signals
-          against your article.
+          <a
+            href={`https://www.google.com/search?q=${encodeURIComponent(targetKeyword)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-semibold text-accent hover:underline"
+          >
+            Search Google for &ldquo;{targetKeyword}&rdquo; &rarr;
+          </a>{" "}
+          and add the top 3-5 ranking article URLs that compete with your
+          content. The analysis will compare their structure, subtopics, and
+          SEO signals against your article.
         </p>
       </InfoCallout>
 
